@@ -4,7 +4,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Main {
+/**
+ * Converts non-negative integers to their English word representation.
+ * For example, the input 123 will be converted to "one hundred twenty three".
+ * Supports numbers up to the millions.
+ */
+public class Converter {
 
     static final Map<Integer, String> segments = new HashMap<>();
     static final Map<String, String> ones = new HashMap<>();
@@ -50,72 +55,112 @@ public class Main {
         tens.put("9", "ninety");
     }
 
+    /**
+     * Demonstrates the usage of the {@link #convert(int)} method with example inputs.
+     * Prints the English word representation of several sample numbers to the console.
+     *
+     * @param args Command line arguments (not used).
+     */
     public static void main(String[] args) {
-        {
-            final String result = convert(24);
-            System.out.println(result);
-        }
-        {
-            final String result = convert(6);
-            System.out.println(result);
-        }
-        {
-            final String result = convert(10);
-            System.out.println(result);
-        }
-        {
-            final String result = convert(20);
-            System.out.println(result);
-        }
-        {
-            final String result = convert(124);
-            System.out.println(result);
-        }
-        {
-            final String result = convert(104);
-            System.out.println(result);
-        }
-        {
-            final String result = convert(123_013_546);
-            System.out.println(result);
-        }
+        final String result24 = convert(24);
+        System.out.println(result24);
+
+        final String result6 = convert(6);
+        System.out.println(result6);
+
+        final String result10 = convert(10);
+        System.out.println(result10);
+
+        final String result20 = convert(20);
+        System.out.println(result20);
+
+        final String result124 = convert(124);
+        System.out.println(result124);
+
+        final String result104 = convert(104);
+        System.out.println(result104);
+
+        final String result123013546 = convert(123_013_546);
+        System.out.println(result123013546);
     }
 
+    /**
+     * Converts a non-negative integer to its English word representation.
+     * For example, 123 is converted to "one hundred twenty three".
+     * Handles 0 specifically by returning "zero".
+     * The method processes the number in segments of three digits (hundreds, tens, ones),
+     * converting each segment and then appending the appropriate scale word (e.g., "thousand", "million").
+     *
+     * @param input The non-negative integer to convert. Must be less than 2,147,483,647 (Integer.MAX_VALUE).
+     *              Currently supports up to millions. Larger numbers might produce incorrect scale words.
+     * @return The English word representation of the input integer.
+     */
     public static String convert(int input) {
-        final String inputAsString = String.valueOf(input);
-        final List<String> subResults = new ArrayList<>();
-
-        int segment = 0;
-        for (int i = inputAsString.length() - 1; i >= 0; i -= SEGMENT_SIZE) {
-            final StringBuilder subRes = new StringBuilder();
-            final String hundred = inputAsString.length() > 2 ? String.valueOf(inputAsString.charAt(i - 2)) : "0";
-            final String ten = inputAsString.length() > 1 ? String.valueOf(inputAsString.charAt(i - 1)) : "0";
-            final String one = String.valueOf(inputAsString.charAt(i));
-
-            if (!hundred.equals("0")) {
-                subRes.append(ones.get(hundred)).append(" ").append("hundred");
-                if (!ten.equals("0") || !one.equals("0")) {
-                    subRes.append(" ");
-                }
-            }
-
-            if (ten.equals("1")) {
-                subRes.append(onesTens.get(ten + one));
-            } else if (ten.equals("0")) {
-                subRes.append(ones.get(one));
-            } else {
-                subRes.append(tens.get(ten)).append(" ").append(ones.get(one));
-            }
-
-            subRes.append(" ").append(segments.get(segment));
-
-            segment++;
-
-            subResults.add(subRes.toString());
+        if (input == 0) {
+            return "zero";
         }
 
-        Collections.reverse(subResults);
+        String originalInputString = String.valueOf(input);
+        int inputLength = originalInputString.length();
+        int leadingZerosCount = (SEGMENT_SIZE - (inputLength % SEGMENT_SIZE)) % SEGMENT_SIZE;
+        String paddedInputString = "0".repeat(leadingZerosCount) + originalInputString;
 
-        return String.join(" ", subResults);
+        final List<String> resultParts = new ArrayList<>();
+        int numSegments = paddedInputString.length() / SEGMENT_SIZE;
+
+        for (int segmentStartIndex = 0; segmentStartIndex < paddedInputString.length(); segmentStartIndex += SEGMENT_SIZE) {
+            String hundredDigit = String.valueOf(paddedInputString.charAt(segmentStartIndex));
+            String tenDigit = String.valueOf(paddedInputString.charAt(segmentStartIndex + 1));
+            String oneDigit = String.valueOf(paddedInputString.charAt(segmentStartIndex + 2));
+
+            String segmentWords = convertSegmentToString(hundredDigit, tenDigit, oneDigit);
+
+            if (!segmentWords.isEmpty()) {
+                resultParts.add(segmentWords);
+                int segmentIndex = numSegments - (segmentStartIndex / SEGMENT_SIZE) - 1;
+                if (segmentIndex > 0) {
+                    resultParts.add(segments.get(segmentIndex));
+                }
+            }
+        }
+        return String.join(" ", resultParts).replaceAll("\\s+", " ").trim();
+    }
+
+    /*
+     * Helper method to convert a three-digit segment (represented as character strings for hundred, ten, and one digits)
+     * into its English word representation.
+     * For example, if hundredDigitChar="1", tenDigitChar="2", oneDigitChar="3", it returns "one hundred twenty three".
+     * If a segment is "000", it returns an empty string.
+     * Handles tens and teens (10-19) correctly.
+     */
+    private static String convertSegmentToString(String hundredDigitChar, String tenDigitChar, String oneDigitChar) {
+        List<String> parts = new ArrayList<>();
+
+        if (!hundredDigitChar.equals("0")) {
+            parts.add(ones.get(hundredDigitChar));
+            parts.add("hundred");
+        }
+
+        if (tenDigitChar.equals("1")) {
+            parts.add(onesTens.get(tenDigitChar + oneDigitChar));
+        } else if (tenDigitChar.equals("0")) {
+            if (!oneDigitChar.equals("0") || parts.isEmpty()) { // Add "zero" for "000" if parts is empty
+                 String oneWord = ones.get(oneDigitChar);
+                 if (!oneWord.isEmpty() || parts.isEmpty()) { // Avoid adding empty string unless it's "000"
+                    parts.add(oneWord);
+                 }
+            }
+        } else { // Tens digit is 2-9
+            parts.add(tens.get(tenDigitChar));
+            String oneWord = ones.get(oneDigitChar);
+            if (!oneWord.isEmpty()) {
+                parts.add(oneWord);
+            }
+        }
+        
+        parts.removeIf(String::isEmpty); // Clean up any empty strings added if ones.get("0") was involved.
+                                         // This is important if "0" in ones map is ""
+
+        return String.join(" ", parts);
     }
 }
